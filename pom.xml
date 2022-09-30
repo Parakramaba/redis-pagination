@@ -56,6 +56,13 @@
 			<version>2.7.3</version>
 		</dependency>
 
+<!--		&lt;!&ndash; https://mvnrepository.com/artifact/redis.clients/jedis &ndash;&gt;-->
+<!--		<dependency>-->
+<!--			<groupId>redis.clients</groupId>-->
+<!--			<artifactId>jedis</artifactId>-->
+<!--			<version>4.3.0-m2</version>-->
+<!--		</dependency>-->
+
 	</dependencies>
 
 	<build>

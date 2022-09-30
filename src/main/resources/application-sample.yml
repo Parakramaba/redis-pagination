@@ -7,6 +7,15 @@ spring:
     username: root
     password: password
 
+  cache:
+    redis:
+      time-to-live: 600000
+
+  redis:
+    database: 0
+    port: 6379
+    host: localhost
+
   jpa:
     show-sql: true
     hibernate:
