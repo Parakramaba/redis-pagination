@@ -10,6 +10,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Optional;
+
 /**
  * This Controller class provides set of API endpoints which can be used to handle persons.
  */
@@ -24,11 +26,13 @@ public class PersonController {
 //    public static final String HASH_KEY = "person";
 
     @GetMapping("/all")
-    @Cacheable(value = "allPersons", key = "#page")
-    public Page<Person> getAllPersons(final @RequestParam(name = "page") int page,
-                                      final @RequestParam(name = "pageSize") int pageSize) {
-        System.out.println("Cache miss on person page " + page + " of pageSize " + pageSize);
-        return personService.getAllPersons(page, pageSize);
+    @Cacheable(value = "allPersons")
+    public Page<Person> getAllPersons(final @RequestParam(name = "page") Optional<Integer> page,
+                                      final @RequestParam(name = "pageSize") Optional<Integer> pageSize,
+                                      final @RequestParam(name = "sortingField") Optional<String> sortingField) {
+        System.out.println("Cache miss on person page " + page + " of pageSize "
+                + pageSize + " that sorted by " + sortingField);
+        return personService.getAllPersons(page, pageSize, sortingField);
     }
 
     @GetMapping("/{id}")
