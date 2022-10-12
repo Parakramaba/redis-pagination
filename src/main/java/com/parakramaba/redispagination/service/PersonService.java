@@ -1,6 +1,7 @@
 package com.parakramaba.redispagination.service;
 
 import com.parakramaba.redispagination.dto.PersonUpdateDto;
+import com.parakramaba.redispagination.dto.ResponseDto;
 import com.parakramaba.redispagination.entity.Address;
 import com.parakramaba.redispagination.entity.Person;
 import com.parakramaba.redispagination.exception.ResourceNotFoundException;
@@ -10,12 +11,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -31,6 +36,9 @@ public class PersonService {
 
     @Autowired
     private AddressRepository addressRepository;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     /**
      * In build, this method insert set of data to the database. And shall be commented after first run.
@@ -59,22 +67,44 @@ public class PersonService {
 //        personRepository.saveAll(persons);
 //    }
 
-    public Page<Person> getAllPersons(final Optional<Integer> page, final Optional<Integer>  pageSize, final Optional<String> sortingField) {
+    public ResponseDto getAllPersons(final Optional<Integer> page, final Optional<Integer>  pageSize, final Optional<String> sortingField) {
         Page<Person> persons =  personRepository.findAll(PageRequest.of(
                 page.orElse(0),
                 pageSize.orElse(20),
                 Sort.Direction.ASC, sortingField.orElse("id")
         ));
-        return persons;
+        ResponseDto response = new ResponseDto();
+        response.setStatus(HttpStatus.OK.value());
+        response.setDateTime(LocalDateTime.now());
+        response.setData(persons);
+
+        return response;
+
     }
 
-    public Person getPersonDetails(final int personId) {
-        Person person = personRepository.findById(personId).orElseThrow(()
-                -> new ResourceNotFoundException("Person not found : " + personId));
-        return person;
+    public ResponseEntity<?> getPersonDetails(final int personId) {
+//        System.out.println("Inside the PersonService on " + personId);
+        // Check if the requested person is in the cache
+        String personKey = "person::" + personId;
+        Object person = redisTemplate.opsForValue().get(personKey);
+
+        // If not get the person from DB and put him into the cache
+        if (person == null) {
+//            System.out.println("Cache miss on getPersonDetails() for person : " + personId);
+            person = personRepository.findById(personId).orElseThrow(()
+                    -> new ResourceNotFoundException("Person not found : " + personId));
+
+            redisTemplate.opsForValue().set(personKey, person, 10, TimeUnit.MINUTES);
+        }
+
+        ResponseDto response = new ResponseDto();
+        response.setStatus(HttpStatus.OK.value());
+        response.setData(person);
+        response.setDateTime(LocalDateTime.now());
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    public Person updatePersonDetails(final int personId, final PersonUpdateDto personUpdateDto) {
+    public ResponseDto updatePersonDetails(final int personId, final PersonUpdateDto personUpdateDto) {
         Person person = personRepository.findById(personId).orElseThrow(()
                 -> new ResourceNotFoundException("Person not found  : " + personId));
         if (personUpdateDto.getFirstName() != null && personUpdateDto.getFirstName().length() > 0) {
@@ -88,7 +118,11 @@ public class PersonService {
         }
 
         personRepository.save(person);
-        return person;
+        ResponseDto response = new ResponseDto();
+        response.setStatus(HttpStatus.OK.value());
+        response.setMessage("Person details updated successfully");
+        response.setData(LocalDateTime.now());
+        return response;
     }
 
     public void removePerson(final int personId) {

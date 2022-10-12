@@ -1,13 +1,13 @@
 package com.parakramaba.redispagination.controller;
 
 import com.parakramaba.redispagination.dto.PersonUpdateDto;
-import com.parakramaba.redispagination.entity.Person;
+import com.parakramaba.redispagination.dto.ResponseDto;
 import com.parakramaba.redispagination.service.PersonService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
@@ -27,24 +27,22 @@ public class PersonController {
 
     @GetMapping("/all")
     @Cacheable(value = "allPersons")
-    public Page<Person> getAllPersons(final @RequestParam(name = "page") Optional<Integer> page,
-                                      final @RequestParam(name = "pageSize") Optional<Integer> pageSize,
-                                      final @RequestParam(name = "sortingField") Optional<String> sortingField) {
+    public ResponseDto getAllPersons(final @RequestParam(name = "page") Optional<Integer> page,
+                                     final @RequestParam(name = "pageSize") Optional<Integer> pageSize,
+                                     final @RequestParam(name = "sortingField") Optional<String> sortingField) {
         System.out.println("Cache miss on person page " + page + " of pageSize "
                 + pageSize + " that sorted by " + sortingField);
         return personService.getAllPersons(page, pageSize, sortingField);
     }
 
     @GetMapping("/{id}")
-    @Cacheable(value = "person", key = "#personId")
-    public Person getPersonDetails(final @PathVariable("id") int personId) {
-        System.out.println("Cache miss on getPersonDetails() for person : " + personId);
+    public ResponseEntity<?> getPersonDetails(final @PathVariable("id") int personId) {
         return personService.getPersonDetails(personId);
     }
 
     @PutMapping("/{id}")
     @CachePut(value = "person", key = "#personId")
-    public Person updatePersonDetails(final @PathVariable("id") int personId,
+    public ResponseDto updatePersonDetails(final @PathVariable("id") int personId,
                                     final @RequestBody PersonUpdateDto personUpdateDto) {
         return personService.updatePersonDetails(personId, personUpdateDto);
     }
