@@ -41,16 +41,14 @@ public class PersonController {
     }
 
     @PutMapping("/{id}")
-    @CachePut(value = "person", key = "#personId")
-    public ResponseDto updatePersonDetails(final @PathVariable("id") int personId,
+    public ResponseEntity<?> updatePersonDetails(final @PathVariable("id") int personId,
                                     final @RequestBody PersonUpdateDto personUpdateDto) {
         return personService.updatePersonDetails(personId, personUpdateDto);
     }
 
     @DeleteMapping("/{id}")
-    @CacheEvict(value = "person", key = "#personId")
-    public void removePerson(final @PathVariable("id") int personId) {
-        personService.removePerson(personId);
+    public ResponseEntity<?> removePerson(final @PathVariable("id") int personId) {
+        return personService.removePerson(personId);
     }
 
 }

@@ -38,7 +38,7 @@ public class PersonService {
     private AddressRepository addressRepository;
 
     @Autowired
-    private RedisTemplate redisTemplate;
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * In build, this method insert set of data to the database. And shall be commented after first run.
@@ -104,9 +104,14 @@ public class PersonService {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    public ResponseDto updatePersonDetails(final int personId, final PersonUpdateDto personUpdateDto) {
+    public ResponseEntity<?> updatePersonDetails(final int personId, final PersonUpdateDto personUpdateDto) {
+
+        // Cache key of the person
+        String personKey = "person::" + personId;
+
         Person person = personRepository.findById(personId).orElseThrow(()
                 -> new ResourceNotFoundException("Person not found  : " + personId));
+
         if (personUpdateDto.getFirstName() != null && personUpdateDto.getFirstName().length() > 0) {
             person.setFirstName(personUpdateDto.getFirstName());
         }
@@ -118,17 +123,32 @@ public class PersonService {
         }
 
         personRepository.save(person);
+        redisTemplate.opsForValue().setIfPresent(personKey, person, 10, TimeUnit.MINUTES);
+
         ResponseDto response = new ResponseDto();
         response.setStatus(HttpStatus.OK.value());
         response.setMessage("Person details updated successfully");
-        response.setData(LocalDateTime.now());
-        return response;
+        response.setData(personId);
+        response.setDateTime(LocalDateTime.now());
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    public void removePerson(final int personId) {
+    public ResponseEntity<?> removePerson(final int personId) {
+        // Cache key of the person
+        String personKey = "person::" + personId;
         Person person = personRepository.findById(personId).orElseThrow(()
                 -> new ResourceNotFoundException("Person not found : " + personId));
+
         personRepository.delete(person);
+        redisTemplate.delete(personKey);
+
+        ResponseDto response = new ResponseDto();
+        response.setStatus(HttpStatus.OK.value());
+        response.setMessage("Person removed successfully");
+        response.setData(personId);
+        response.setDateTime(LocalDateTime.now());
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
 }
