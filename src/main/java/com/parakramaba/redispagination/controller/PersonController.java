@@ -26,12 +26,10 @@ public class PersonController {
 //    public static final String HASH_KEY = "person";
 
     @GetMapping("/all")
-    @Cacheable(value = "allPersons")
-    public ResponseDto getAllPersons(final @RequestParam(name = "page") Optional<Integer> page,
+//    @Cacheable(value = "allPersons")
+    public ResponseEntity<?> getAllPersons(final @RequestParam(name = "page") Optional<Integer> page,
                                      final @RequestParam(name = "pageSize") Optional<Integer> pageSize,
                                      final @RequestParam(name = "sortingField") Optional<String> sortingField) {
-        System.out.println("Cache miss on person page " + page + " of pageSize "
-                + pageSize + " that sorted by " + sortingField);
         return personService.getAllPersons(page, pageSize, sortingField);
     }
 

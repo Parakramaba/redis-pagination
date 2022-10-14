@@ -38,7 +38,10 @@ public class PersonService {
     private AddressRepository addressRepository;
 
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private RedisTemplate<String, Person> redisTemplate;
+
+    @Autowired
+    private RedisTemplate<String, Page<Person>> redisPageTemplate;
 
     /**
      * In build, this method insert set of data to the database. And shall be commented after first run.
@@ -67,30 +70,59 @@ public class PersonService {
 //        personRepository.saveAll(persons);
 //    }
 
-    public ResponseDto getAllPersons(final Optional<Integer> page, final Optional<Integer>  pageSize, final Optional<String> sortingField) {
-        Page<Person> persons =  personRepository.findAll(PageRequest.of(
-                page.orElse(0),
-                pageSize.orElse(20),
-                Sort.Direction.ASC, sortingField.orElse("id")
-        ));
+    public ResponseEntity<?> getAllPersons(final Optional<Integer> page, final Optional<Integer>  pageSize, final Optional<String> sortingField) {
+
+        int pageNumber = page.orElse(0);
+
+        // Cache key of requested Page of all persons
+        String requestedAllPersonPageKey = "allPersons::" + pageNumber + "::" + pageSize.orElse(20)
+                + "::"+ sortingField.orElse("id");
+
+        // Check if the requested page is in the cache
+        Page<Person> requestedPersonPage = redisPageTemplate.opsForValue().get(requestedAllPersonPageKey);
+
+        if (requestedPersonPage == null) {
+            System.out.println("Cache miss on person page " + pageNumber + " of pageSize "
+                    + pageSize + " that sorted by " + sortingField);
+
+            // Get data of five adjacent pages and store them inside the cache
+            for (int i = 0; i < 5; i++) {
+                String allPersonsPageKey = "allPersons::" + pageNumber + "::" + pageSize.orElse(20)
+                        + "::"+ sortingField.orElse("id");
+                Page<Person> adjacentPage = redisPageTemplate.opsForValue().get(allPersonsPageKey);
+                if (adjacentPage == null) {
+                    Page<Person> allPersonsPage = personRepository.findAll(PageRequest.of(
+                            pageNumber,
+                            pageSize.orElse(20),
+                            Sort.Direction.ASC, sortingField.orElse("id")
+                    ));
+
+                    // Store page into the cache
+                    redisPageTemplate.opsForValue().setIfAbsent(allPersonsPageKey, allPersonsPage, 10, TimeUnit.MINUTES);
+                    pageNumber++;
+                }
+            }
+            // Get the requested page from cache
+            requestedPersonPage = redisPageTemplate.opsForValue().get(requestedAllPersonPageKey);
+        }
+
         ResponseDto response = new ResponseDto();
         response.setStatus(HttpStatus.OK.value());
         response.setDateTime(LocalDateTime.now());
-        response.setData(persons);
+        response.setData(requestedPersonPage);
 
-        return response;
+        return new ResponseEntity<>(response, HttpStatus.OK);
 
     }
 
     public ResponseEntity<?> getPersonDetails(final int personId) {
-//        System.out.println("Inside the PersonService on " + personId);
         // Check if the requested person is in the cache
         String personKey = "person::" + personId;
-        Object person = redisTemplate.opsForValue().get(personKey);
+        Person person = redisTemplate.opsForValue().get(personKey);
 
         // If not get the person from DB and put him into the cache
         if (person == null) {
-//            System.out.println("Cache miss on getPersonDetails() for person : " + personId);
+            System.out.println("Cache miss on getPersonDetails() for person : " + personId);
             person = personRepository.findById(personId).orElseThrow(()
                     -> new ResourceNotFoundException("Person not found : " + personId));
 
@@ -123,6 +155,8 @@ public class PersonService {
         }
 
         personRepository.save(person);
+
+        // Update the cache entry
         redisTemplate.opsForValue().setIfPresent(personKey, person, 10, TimeUnit.MINUTES);
 
         ResponseDto response = new ResponseDto();
@@ -140,6 +174,8 @@ public class PersonService {
                 -> new ResourceNotFoundException("Person not found : " + personId));
 
         personRepository.delete(person);
+
+        // Delete cache entry
         redisTemplate.delete(personKey);
 
         ResponseDto response = new ResponseDto();
