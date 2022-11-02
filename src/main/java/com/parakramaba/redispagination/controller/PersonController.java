@@ -26,7 +26,6 @@ public class PersonController {
 //    public static final String HASH_KEY = "person";
 
     @GetMapping("/all")
-//    @Cacheable(value = "allPersons")
     public ResponseEntity<?> getAllPersons(final @RequestParam(name = "page") Optional<Integer> page,
                                      final @RequestParam(name = "pageSize") Optional<Integer> pageSize,
                                      final @RequestParam(name = "sortingField") Optional<String> sortingField) {
