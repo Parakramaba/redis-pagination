@@ -2,27 +2,20 @@ package com.parakramaba.redispagination.service;
 
 import com.parakramaba.redispagination.dto.PersonUpdateDto;
 import com.parakramaba.redispagination.dto.ResponseDto;
-import com.parakramaba.redispagination.entity.Address;
 import com.parakramaba.redispagination.entity.Person;
 import com.parakramaba.redispagination.exception.ResourceNotFoundException;
 import com.parakramaba.redispagination.repository.AddressRepository;
 import com.parakramaba.redispagination.repository.PersonRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * This Service class implements the business logic of the endpoints which are provided in the PersonController.
@@ -37,92 +30,71 @@ public class PersonService {
     @Autowired
     private AddressRepository addressRepository;
 
+    // INJECT SERVICE DEPENDENCIES
+    @Autowired
+    private PageCachingService pageCachingService;
+
+    // INJECT REDIS DEPENDENCIES
     @Autowired
     private RedisTemplate<String, Person> redisTemplate;
 
     @Autowired
-    private RedisTemplate<String, Page<Person>> redisPageTemplate;
+    private RedisTemplate<String, Page<Person>> redisPersonPageTemplate;
+
 
     /**
-     * In build, this method insert set of data to the database. And shall be commented after first run.
-     * If you need to change the number of rows in the table just update the second argument(param2) in IntStream.rangeClosed(param1, param2)
-     * with the needed number of rows.
+     * This gets the requested page of persons from the cache or database.
+     * If the page not found in the cache, get it and its adjacent pages and make cache entries before return the
+     * requested page.
+     * @param page Page number
+     * @param pageSize No of elements for the page
+     * @param sortingField Sorting field
+     * @return ResponseEntity, contain of requested page of persons
+     * @throws ResourceNotFoundException If no persons found for the page
      */
-//    @PostConstruct
-//    public void initDB() {
-//        ThreadLocalRandom threadRandomObt = ThreadLocalRandom.current();
-//        List<String> genders = new ArrayList(){{ add("Male"); add("Female"); }};
-//        List<String> emailAddressTypes = new ArrayList<>(){{ add("@gmail"); add("@yahoo"); add("@outlook"); }};
-//        List<Address> personAddresses = IntStream.rangeClosed(1, 5011)
-//                .mapToObj(i -> new Address(i, "Country " + threadRandomObt.nextInt(1, 197), "Street address "
-//                        + threadRandomObt.nextInt(1, 2001), threadRandomObt.nextInt(1, 2001),
-//                        "City " + threadRandomObt.nextInt(1, 2001), Collections.emptyList()))
-//                .collect(Collectors.toList());
-//        List<Person> persons = IntStream.rangeClosed(1, 5011)
-//                .mapToObj(j -> new Person(j, "First name " + threadRandomObt.nextInt(1, 2001), "Last name "
-//                        + threadRandomObt.nextInt(1, 2001), personAddresses.get(j-1),
-//                        threadRandomObt.nextInt(20, 101), genders.get(threadRandomObt.nextInt(0, 2)),
-//                        "Occupation " + threadRandomObt.nextInt(1, 301),
-//                        "email" + j + emailAddressTypes.get(threadRandomObt.nextInt(0, 3)) + ".com", LocalDateTime.now()))
-//                .collect(Collectors.toList());
-//
-//        addressRepository.saveAll(personAddresses);
-//        personRepository.saveAll(persons);
-//    }
+    public ResponseEntity<?> getAllPersons(final Optional<Integer> page,
+                                           final Optional<Integer>  pageSize,
+                                           final Optional<String> sortingField)
+            throws ResourceNotFoundException {
 
-    public ResponseEntity<?> getAllPersons(final Optional<Integer> page, final Optional<Integer>  pageSize, final Optional<String> sortingField) {
+        int requestedPageNumber = page.orElse(0);
+        int requestedPageSize = pageSize.orElse(20);
+        String requestedSortingField = sortingField.orElse("id");
 
-        int pageNumber = page.orElse(0);
+        // Cache key of the requested page of all persons
+        String requestedPageKey = "allPersons:" + requestedPageNumber + ":" + requestedPageSize + ":"
+                + requestedSortingField;
 
-        // Cache key of requested Page of all persons
-        String requestedAllPersonPageKey = "allPersons::" + pageNumber + "::" + pageSize.orElse(20)
-                + "::"+ sortingField.orElse("id");
+        // Check the requested page in the cache
+        Page<Person> requestedPage = redisPersonPageTemplate.opsForValue().get(requestedPageKey);
 
-        // Check if the requested page is in the cache
-        Page<Person> requestedPersonPage = redisPageTemplate.opsForValue().get(requestedAllPersonPageKey);
-
-        if (requestedPersonPage == null) {
-            System.out.println("Cache miss on person page " + pageNumber + " of pageSize "
-                    + pageSize + " that sorted by " + sortingField);
-
-            // Get data of five adjacent pages and store them inside the cache
-            for (int i = 0; i < 5; i++) {
-                String allPersonsPageKey = "allPersons::" + pageNumber + "::" + pageSize.orElse(20)
-                        + "::"+ sortingField.orElse("id");
-                Page<Person> adjacentPage = redisPageTemplate.opsForValue().get(allPersonsPageKey);
-                if (adjacentPage == null) {
-                    Page<Person> allPersonsPage = personRepository.findAll(PageRequest.of(
-                            pageNumber,
-                            pageSize.orElse(20),
-                            Sort.Direction.ASC, sortingField.orElse("id")
-                    ));
-
-                    // Store page into the cache
-                    redisPageTemplate.opsForValue().setIfAbsent(allPersonsPageKey, allPersonsPage, 10, TimeUnit.MINUTES);
-                    pageNumber++;
-                }
-            }
-            // Get the requested page from cache
-            requestedPersonPage = redisPageTemplate.opsForValue().get(requestedAllPersonPageKey);
+        if (requestedPage == null) {
+            requestedPage = pageCachingService.cachingAndGetAllPersonsPage(requestedPageNumber, requestedPageSize,
+                    requestedSortingField, requestedPageKey);
         }
 
+        // Response
         ResponseDto response = new ResponseDto();
         response.setStatus(HttpStatus.OK.value());
         response.setDateTime(LocalDateTime.now());
-        response.setData(requestedPersonPage);
+        response.setData(requestedPage);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
 
     }
 
+    /**
+     * Get the details of a person, either from cache or database.
+     * @param personId ID of the person, not null
+     * @return ResponseEntity, contain of Person details
+     */
     public ResponseEntity<?> getPersonDetails(final int personId) {
         // Check if the requested person is in the cache
-        String personKey = "person::" + personId;
+        String personKey = "person:" + personId;
         Person person = redisTemplate.opsForValue().get(personKey);
 
         // If not get the person from DB and put him into the cache
         if (person == null) {
-            System.out.println("Cache miss on getPersonDetails() for person : " + personId);
             person = personRepository.findById(personId).orElseThrow(()
                     -> new ResourceNotFoundException("Person not found : " + personId));
 
@@ -136,10 +108,16 @@ public class PersonService {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    /**
+     * Update the database and cache entries of a person.
+     * @param personId ID of the person, not null
+     * @param personUpdateDto Field values for update
+     * @return ResponseEntity, contain of success message
+     */
     public ResponseEntity<?> updatePersonDetails(final int personId, final PersonUpdateDto personUpdateDto) {
 
         // Cache key of the person
-        String personKey = "person::" + personId;
+        String personKey = "person:" + personId;
 
         Person person = personRepository.findById(personId).orElseThrow(()
                 -> new ResourceNotFoundException("Person not found  : " + personId));
@@ -167,9 +145,14 @@ public class PersonService {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    /**
+     * Remove a person form database and cache.
+     * @param personId ID of a person, not null
+     * @return ResponseEntity, contain of success message
+     */
     public ResponseEntity<?> removePerson(final int personId) {
         // Cache key of the person
-        String personKey = "person::" + personId;
+        String personKey = "person:" + personId;
         Person person = personRepository.findById(personId).orElseThrow(()
                 -> new ResourceNotFoundException("Person not found : " + personId));
 
