@@ -1,12 +1,8 @@
 package com.parakramaba.redispagination.controller;
 
 import com.parakramaba.redispagination.dto.PersonUpdateDto;
-import com.parakramaba.redispagination.dto.ResponseDto;
 import com.parakramaba.redispagination.service.PersonService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
