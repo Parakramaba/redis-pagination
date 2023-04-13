@@ -19,8 +19,6 @@ public class PersonController {
     @Autowired
     private PersonService personService;
 
-//    public static final String HASH_KEY = "person";
-
     @GetMapping("/all")
     public ResponseEntity<?> getAllPersons(final @RequestParam(name = "page") Optional<Integer> page,
                                      final @RequestParam(name = "pageSize") Optional<Integer> pageSize,

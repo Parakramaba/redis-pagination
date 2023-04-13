@@ -30,20 +30,19 @@ public class DatabaseService {
 
     /**
      * In build, this method insert set of data to the database. And shall be commented after first run.
-     * If you need to change the number of records, just update the above noOfRecords filed.
+     * If you need to change the number of records, just update the above noOfRecords field.
      */
     @PostConstruct
     public void initDB() {
         ThreadLocalRandom threadRandomObt = ThreadLocalRandom.current();
-        List<String> genders = new ArrayList() {{
-            add("Male");
-            add("Female");
-        }};
-        List<String> emailAddressTypes = new ArrayList<>() {{
-            add("@gmail");
-            add("@yahoo");
-            add("@outlook");
-        }};
+        List<String> genders = new ArrayList<>();
+        genders.add("Male");
+        genders.add("Female");
+
+        List<String> emailAddressTypes = new ArrayList<>();
+        emailAddressTypes.add("@gmail");
+        emailAddressTypes.add("@yahoo");
+        emailAddressTypes.add("@outlook");
 
         List<Address> personAddresses = IntStream.rangeClosed(1, noOfRecords)
                 .mapToObj(i -> new Address(i, "Country " + threadRandomObt.nextInt(1, 197),
