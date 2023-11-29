@@ -32,19 +32,20 @@ public class PageCachingService {
      * @param requestedPageKey Cache key of the requested page, not null
      * @return Page of persons
      */
-    protected Page<Person> cachingAndGetAllPersonsPage(final int requestedPageNumber,
+    protected Page<Person> cachingAndGetAllPersonsPage(final String requestedSortingField,
                                                        final int requestedPageSize,
-                                                       final String requestedSortingField,
+                                                       final int requestedNoOfPages,
+                                                       final int requestedPageNumber,
                                                        final String requestedPageKey) {
 
         int nextPageNumber = requestedPageNumber + 1;
 
         // Get and cache the requested page
-        Page<Person> requestedPage = getAndCacheRequestedAllPersonsPage(requestedPageNumber, requestedPageSize,
-                requestedSortingField, requestedPageKey);
+        Page<Person> requestedPage = getAndCacheRequestedAllPersonsPage(requestedSortingField, requestedPageSize, requestedPageNumber,
+                 requestedPageKey);
 
         // Set adjacent pages of requested page into cache
-        setAdjacentPagesForAllPersons(nextPageNumber, requestedPageSize, requestedSortingField);
+        setAdjacentPagesForAllPersons(requestedSortingField, requestedPageSize, requestedNoOfPages, nextPageNumber);
 
         return requestedPage;
     }
@@ -59,9 +60,9 @@ public class PageCachingService {
      * @return Requested page of persons
      * @throws ResourceNotFoundException When the requested Person page not found
      */
-    protected Page<Person> getAndCacheRequestedAllPersonsPage(final int requestedPageNumber,
+    protected Page<Person> getAndCacheRequestedAllPersonsPage(final String requestedSortingField,
                                                               final int requestedPageSize,
-                                                              final String requestedSortingField,
+                                                              final int requestedPageNumber,
                                                               final String requestedPageKey)
             throws ResourceNotFoundException {
 
@@ -89,17 +90,18 @@ public class PageCachingService {
      * @param requestedPageSize Number of elements for the page, not null
      * @param requestedSortingField Sorting filed, not null
      */
-    protected void setAdjacentPagesForAllPersons(final int pageNumber,
+    protected void setAdjacentPagesForAllPersons(final String requestedSortingField,
                                                  final int requestedPageSize,
-                                                 final String requestedSortingField) {
+                                                 final int requestedNoOfPages,
+                                                 final int pageNumber) {
 
         int nextPageNumber = pageNumber;
 
-        // Get data of next four adjacent pages and store them in the cache
+        // Get data of next adjacent pages and store them in the cache
         loopCachingAdjacentPages:
-        for (int i = 0; i < 4; i++) {
-            String pageKey = "allPersons:" + nextPageNumber + ":" + requestedPageSize
-                    + ":" + requestedSortingField;
+        for (int i = 1; i < requestedNoOfPages; i++) {
+            String pageKey = "allPersons:" + requestedSortingField + ":"  + requestedPageSize + ":"
+                    + requestedNoOfPages + ":" + nextPageNumber ;
             Page<Person> adjacentPage = redisPersonPageTemplate.opsForValue().get(pageKey);
             if (adjacentPage == null) {
                 Page<Person> allPersonsPage = personRepository.findAll(

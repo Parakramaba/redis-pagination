@@ -6,8 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
-
 /**
  * This Controller class provides set of API endpoints which can be used to handle persons.
  */
@@ -20,10 +18,11 @@ public class PersonController {
     private PersonService personService;
 
     @GetMapping("/all")
-    public ResponseEntity<?> getAllPersons(final @RequestParam(name = "page") Optional<Integer> page,
-                                     final @RequestParam(name = "pageSize") Optional<Integer> pageSize,
-                                     final @RequestParam(name = "sortingField") Optional<String> sortingField) {
-        return personService.getAllPersons(page, pageSize, sortingField);
+    public ResponseEntity<?> getAllPersons(final @RequestParam(name = "sortingField", required = false, defaultValue = "id") String sortingField,
+                                           final @RequestParam(name = "pageSize", required = false, defaultValue = "10") Integer pageSize,
+                                           final @RequestParam(name = "noOfPages", required = false, defaultValue = "5") Integer noOfPages,
+                                           final @RequestParam(name = "pageNo", required = false, defaultValue = "0") Integer pageNo) {
+        return personService.getAllPersons(sortingField, pageSize, noOfPages, pageNo);
     }
 
     @GetMapping("/{id}")

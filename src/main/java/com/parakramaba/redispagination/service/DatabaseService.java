@@ -59,7 +59,7 @@ public class DatabaseService {
                         emailAddressTypes.get(threadRandomObt.nextInt(0, emailAddressTypes.size())) + ".com", LocalDateTime.now()))
                 .collect(Collectors.toList());
 
-        addressRepository.saveAll(personAddresses);
-        personRepository.saveAll(persons);
+//        addressRepository.saveAll(personAddresses);
+//        personRepository.saveAll(persons);
     }
 }

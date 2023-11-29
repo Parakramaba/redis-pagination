@@ -31,4 +31,22 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(errorDetails, HttpStatus.NOT_FOUND);
     }
+
+    /**
+     * This handler method returns a ResponseEntity with the details of the ValidationException.
+     * @param ex ValidationException object, not null
+     * @param request WebRequest object, not null
+     * @return Details of the exception, not null
+     */
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<?> handleValidationException(final ValidationException ex,
+                                                             final WebRequest request) {
+        ErrorDetails errorDetails = new ErrorDetails(HttpStatus.BAD_REQUEST.value(),
+                request.getDescription(false),
+                ex.getMessage(),
+                LocalDateTime.now(),
+                null);
+
+        return new ResponseEntity<>(errorDetails, HttpStatus.BAD_REQUEST);
+    }
 }

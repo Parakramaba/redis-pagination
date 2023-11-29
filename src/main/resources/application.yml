@@ -1,7 +1,7 @@
-app:
-  name: redis-pagination-service
-
 spring:
+  application:
+    name: redis-pagination-service
+
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
 

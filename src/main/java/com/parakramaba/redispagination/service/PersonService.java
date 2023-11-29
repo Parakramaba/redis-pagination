@@ -4,6 +4,7 @@ import com.parakramaba.redispagination.dto.PersonUpdateDto;
 import com.parakramaba.redispagination.dto.ResponseDto;
 import com.parakramaba.redispagination.entity.Person;
 import com.parakramaba.redispagination.exception.ResourceNotFoundException;
+import com.parakramaba.redispagination.exception.ValidationException;
 import com.parakramaba.redispagination.repository.AddressRepository;
 import com.parakramaba.redispagination.repository.PersonRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -46,31 +46,34 @@ public class PersonService {
      * This gets the requested page of persons from the cache or database.
      * If the page not found in the cache, get it and its adjacent pages and make cache entries before return the
      * requested page.
-     * @param page Page number
+     * @param pageNo Page number
      * @param pageSize No of elements for the page
      * @param sortingField Sorting field
      * @return ResponseEntity, contain of requested page of persons
      * @throws ResourceNotFoundException If no persons found for the page
      */
-    public ResponseEntity<?> getAllPersons(final Optional<Integer> page,
-                                           final Optional<Integer>  pageSize,
-                                           final Optional<String> sortingField)
+    public ResponseEntity<?> getAllPersons(final String sortingField,
+                                           final Integer pageSize,
+                                           final Integer noOfPages,
+                                           final Integer pageNo)
             throws ResourceNotFoundException {
 
-        int requestedPageNumber = page.orElse(0);
-        int requestedPageSize = pageSize.orElse(20);
-        String requestedSortingField = sortingField.orElse("id");
+        if (noOfPages > 20) {
+            throw new ValidationException("The number of pages should be less than 20");
+        }
+        if (noOfPages%5 != 0) {
+            throw new ValidationException("The number of pages should be a multiplies of 5");
+        }
 
         // Cache key of the requested page of all persons
-        String requestedPageKey = "allPersons:" + requestedPageNumber + ":" + requestedPageSize + ":"
-                + requestedSortingField;
+        String requestedPageKey = "allPersons:" + sortingField + ":"  + pageSize + ":"
+                + noOfPages + ":"  + pageNo;
 
         // Check the requested page in the cache
         Page<Person> requestedPage = redisPersonPageTemplate.opsForValue().get(requestedPageKey);
 
         if (requestedPage == null) {
-            requestedPage = pageCachingService.cachingAndGetAllPersonsPage(requestedPageNumber, requestedPageSize,
-                    requestedSortingField, requestedPageKey);
+            requestedPage = pageCachingService.cachingAndGetAllPersonsPage(sortingField, pageSize, noOfPages, pageNo, requestedPageKey);
         }
 
         // Response
